@@ -1,0 +1,213 @@
+>> 
+
+%Roger Mascarenhas - 244046
+
+%Espalhamento na sala.
+
+C = 3e8*1e-9;
+
+% angulo de meia potencia 
+theta = 70;
+
+% ordem lambertiana de emissão 
+m = -log10(2)/log10(cosd(theta));
+
+% Potencia total transmitida 
+P_total = 1;
+
+% Area física de detecção do PD
+Adet = 1e-4;
+
+% coeficiente de reflexão 
+rho_ext = 0.7;
+rho_int = 0.8;
+
+%  Ganho do filtro óptico
+Ts = 1; 
+
+% indice de refração da lente de um PD 
+index = 1.5; 
+
+% FOV de um receptor 
+FOV = 60; 
+
+% ganho do concentrador óptico 
+G_con = (index^2)/(sind(FOV).^2);
+
+% dimensões do quarto em metros
+lx = 1.91 ; ly = 3.18 ; lz = 3;
+
+% número de grades em cada superfície
+Nx=lx*20; Ny=ly*20; Nz=round(lz*20);
+
+% calculo da area de grade
+dA = lz*ly/(Ny*Nz);
+
+x=linspace(-lx/2,lx/2,Nx);
+y=linspace(-ly/2,ly/2,Ny);
+z=linspace(-lz/2,lz/2,Nz);
+
+% Posição do transmissor
+TP1 = [0 0 lz/2];
+
+for ii = 1:Nx % cobre o quarto no eixo x 
+    for jj = 1:Ny % cobre o quarto no eixo y
+        
+        % vetor posição do receptor
+        RP = [x(ii) y(jj) -lz/2];
+        
+        % resolução de tempo em ns, usar na forma 1/2^m
+        delta_t = 1/2;
+        
+        % vetor de tempo em ns 
+        t_vector = 0:40/delta_t;
+        
+        % Ganho do canal LOS 
+        h_vector = zeros(1,length(t_vector));
+        
+        D1 = sqrt(dot(TP1-RP,TP1-RP)); % distância euclidiana
+        
+        cosphi = lz/D1; % cosseno do angulo do receptor e distancia 
+        
+        tau0 = D1/C; % atraso, tempo de carregamento
+        
+        index=find(round(tau0/delta_t)==t_vector);
+        
+        % resposta ao impulso para o canal LOS
+        if abs(acosd(cosphi)*pi/180) <= FOV 
+            h_vector(index)=h_vector(index)+(m+1)*Adet.*cosphi.^(m+1)./(2*pi.*D1.^2);
+        end
+        
+        %% reflexão da primeira parede        
+        count = 1;
+        for kk = 1:Ny
+            for ll = 1:Nz
+                
+                WP1 = [-lx/2 y(kk) z(ll)];
+                D1 = sqrt(dot(TP1-WP1,TP1-WP1));
+                cos_phi = abs(WP1(3)-TP1(3))/D1;
+                cos_alpha = abs(TP1(1)-WP1(1))/D1;
+                D2 = sqrt(dot(WP1-RP,WP1-RP));
+                cos_beta = abs(WP1(1)-RP(1))/D2;
+                cos_psi = abs(WP1(3)-RP(3))/D2;
+                
+                tau1 = (D1+D2)/C;
+                index = find(round(tau1/delta_t)==t_vector);
+                if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+                    h_vector(index)=h_vector(index)+(m+1)*Adet*rho_int*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^2*D2^2);
+                end
+                
+                count = count + 1;
+            end
+        end
+        
+        %% reflexão da segunda parede 
+        
+        count = 1;
+        for kk = 1:Nx
+            for ll = 1:Nz
+                
+                WP2 = [x(kk) -ly/2 z(ll)];
+                D1 = sqrt(dot(TP1-WP2, TP1-WP2));
+                cos_phi = abs(WP2(3)-TP1(3))/D1;
+                cos_alpha = abs(TP1(2)-WP2(2))/D1;
+                D2 = sqrt(dot(WP2-RP,WP2-RP));
+                cos_beta = abs(WP2(2)-RP(2))/D2;
+                cos_psi = abs(WP2(3)-RP(3))/D2;
+                
+                tau2 = (D1+D2)/C;
+                index = find(round(tau2/delta_t) == t_vector);
+                if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+                    h_vector(index) = h_vector(index) + ...
+                        (m+1)*Adet*rho_int*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^2*D2^2);
+                end
+                
+                count = count + 1;
+            end
+        end
+        
+        %% reflexão da terceira parede
+        
+        count = 1; 
+        for kk = 1:Ny
+            for ll = 1:Nz
+                
+                WP3 = [lx/2 y(kk) z(ll)];
+                D1 = sqrt(dot(TP1-WP3,TP1-WP3));
+                cos_phi = abs(WP3(3)-TP1(3))/D1;
+                cos_alpha = abs(TP1(1)-WP3(1))/D1;
+                D2 = sqrt(dot(WP3-RP,WP3-RP));
+                cos_beta = abs(WP3(1)-RP(1))/D2;
+                cos_psi = abs(WP3(3)-RP(3))/D2;
+                
+                tau3 = (D1+D2)/C;
+                index = find(round(tau3/delta_t) == t_vector);
+                if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+                    h_vector(index) = h_vector(index) + ...
+                        (m+1)*Adet*rho_ext*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^1*D2^2);
+                end
+                
+                count = count + 1;
+            end
+        end
+        
+        %% reflexão da quarta parede
+        
+        count = 1; 
+        for kk = 1:Nx
+            for ll = 1:Nz
+                
+                WP4 = [x(kk) ly/2 z(ll)];
+                D1 = sqrt(dot(TP1-WP4,TP1-WP4));
+                cos_phi = abs(WP4(3)-TP1(3))/D1;
+                cos_alpha = abs(TP1(2)-WP4(2))/D1;
+                D2 = sqrt(dot(WP4-RP,WP4-RP));
+                cos_beta = abs(WP4(2)-RP(2))/D2;
+                cos_psi = abs(WP4(3)-RP(3))/D2;
+                
+                tau4 = (D1+D2)/C;
+                index = find(round(tau4/delta_t) == t_vector);
+                if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+                    h_vector(index) = h_vector(index) + ...
+                        (m+1)*Adet*rho_ext*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^1*D2^2);
+                end
+                
+                count = count + 1;
+                
+            end
+        end
+        
+        % calcula o espalho de atraso médio
+        mean_delay(ii,jj) = sum((h_vector).^2.*t_vector)/sum(h_vector.^2);
+        % calculad o espalho de atraso rms 
+        D_rms = sqrt(mean_delay);
+        B = 1./(5.*D_rms);
+    end
+end
+
+%figure(1)
+%hold on
+%stem(t_vector*delta_t,h_vector)
+
+figure(1)
+surf(mean_delay)
+zlabel('Mean delay')
+ylabel('Espalho de atraso médio')
+xlabel('ns')
+
+figure(2)
+surf(D_rms)
+zlabel('D_rms')
+ylabel('Espalho de atraso rms')
+xlabel('ns')
+
+
+figure(3)
+surf(B)
+zlabel('B')
+ylabel('Largura de banda (B)')
+xlabel('ns')
