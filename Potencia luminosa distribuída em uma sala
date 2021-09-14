@@ -1,0 +1,175 @@
+>> 
+
+%Roger Mascarenhas - 244046;
+
+%Potência recebida na sala;
+
+C = 3e8*1e-9;
+
+%Angulo de meia potencia; 
+theta = 70;
+
+%Modo lambertiana de emissão; 
+m = -log10(2)/log10(cosd(theta));
+
+%Potencia total transmitida; 
+P_total = 1;
+
+% Area física de detecção do fotodetector;
+Adet = 1e-4;
+
+%Coeficientes de reflexão; 
+rho_externo = 0.7;
+rho_interno = 0.8;
+
+%Ganho do filtro óptico;
+Ts = 1; 
+
+%Índice de refração da lente de um PD; 
+index = 1.5; 
+
+%FOV; 
+FOV = 60; 
+
+%Ganho do concentrador óptico não concentrador de imagem;
+G_con = (index^2)/(sind(FOV).^2);
+
+%Dimensões da sala em metros;
+lx = 1.91 ; ly = 3.18 ; lz = 3;
+
+%Número de grades por superfície;
+Nx=lx*20; Ny=ly*20; Nz=round(lz*20);
+
+%Área da grade de superfície;
+dA = lz*ly/(Ny*Nz);
+
+x=linspace(-lx/2,lx/2,Nx);
+y=linspace(-ly/2,ly/2,Ny);
+z=linspace(-lz/2,lz/2,Nz);
+
+%Vetor posição do transmissor de luz;
+TP1 = [0 0 lz/2];
+
+for ii = 1:Nx 
+for jj = 1:Ny
+        
+%Vetor posição do receptor;
+RP = [x(ii) y(jj) -lz/2];
+        
+%Ganho do canal LOS;
+h_vector(ii,jj) = 0;
+        
+D1 = sqrt(dot(TP1-RP,TP1-RP)); %Distância 1;
+        
+cosphi = lz/D1; %Cosseno do angulo referente ao receptor e distancia 1;
+        
+%Resposta ao impulso para o canal LOS;
+if abs(acosd(cosphi)*pi/180) <= FOV 
+h(ii,jj)=h_vector(ii,jj)+(m+1)*Adet.*cosphi.^(m+1)./(2*pi.*D1.^2);
+end
+        
+%Reflexão da parede interna 1;      
+count = 1;
+for kk = 1:Ny
+for ll = 1:Nz
+                
+WP1 = [-lx/2 y(kk) z(ll)];
+D1 = sqrt(dot(TP1-WP1,TP1-WP1));
+cos_phi = abs(WP1(3)-TP1(3))/D1;
+cos_alpha = abs(TP1(1)-WP1(1))/D1;
+D2 = sqrt(dot(WP1-RP,WP1-RP));
+cos_beta = abs(WP1(1)-RP(1))/D2;
+cos_psi = abs(WP1(3)-RP(3))/D2;
+
+if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+h1(ii,jj)=h_vector(ii,jj)+(m+1)*Adet*rho_interno*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^2*D2^2);
+end
+                
+count = count + 1;
+end
+end
+        
+%Reflexão da parede interna 2; 
+        
+count = 1;
+for kk = 1:Nx
+for ll = 1:Nz
+                
+WP2 = [x(kk) -ly/2 z(ll)];
+D1 = sqrt(dot(TP1-WP2, TP1-WP2));
+cos_phi = abs(WP2(3)-TP1(3))/D1;
+cos_alpha = abs(TP1(2)-WP2(2))/D1;
+D2 = sqrt(dot(WP2-RP,WP2-RP));
+cos_beta = abs(WP2(2)-RP(2))/D2;
+cos_psi = abs(WP2(3)-RP(3))/D2;
+
+if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+h2(ii,jj)=h_vector(ii,jj)+(m+1)*Adet*rho_interno*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^2*D2^2);
+end
+                
+count = count + 1;
+end
+end
+        
+%Reflexão da parede externa 1;
+        
+count = 1; 
+for kk = 1:Ny
+for ll = 1:Nz
+                
+WP3 = [lx/2 y(kk) z(ll)];
+D1 = sqrt(dot(TP1-WP3,TP1-WP3));
+cos_phi = abs(WP3(3)-TP1(3))/D1;
+cos_alpha = abs(TP1(1)-WP3(1))/D1;
+D2 = sqrt(dot(WP3-RP,WP3-RP));
+cos_beta = abs(WP3(1)-RP(1))/D2;
+cos_psi = abs(WP3(3)-RP(3))/D2;
+
+if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+h3(ii,jj)=h_vector(ii,jj)+(m+1)*Adet*rho_externo*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^1*D2^2);
+end
+                
+count = count + 1;
+end
+end
+        
+%Reflexão da parede externa 2;
+        
+count = 1; 
+for kk = 1:Nx
+for ll = 1:Nz
+                
+WP4 = [x(kk) ly/2 z(ll)];
+D1 = sqrt(dot(TP1-WP4,TP1-WP4));
+cos_phi = abs(WP4(3)-TP1(3))/D1;
+cos_alpha = abs(TP1(2)-WP4(2))/D1;
+D2 = sqrt(dot(WP4-RP,WP4-RP));
+cos_beta = abs(WP4(2)-RP(2))/D2;
+cos_psi = abs(WP4(3)-RP(3))/D2;
+
+if abs(acosd(cos_psi)*pi/180) <= FOV
+                    
+h4(ii,jj)=h_vector(ii,jj)+(m+1)*Adet*rho_externo*dA*cos_phi^m*cos_alpha*cos_beta*cos_psi/(2*pi^2*D1^1*D2^2);
+end
+                
+count = count + 1;
+                
+end
+end 
+        
+end
+P_rec_total = (h+h1+h2+h3+h4)*P_total.*Ts.*G_con;
+
+%Potencia recebida em decibeis;
+P_rec_dBm=10*log10(P_rec_total);
+
+end
+
+figure(1)
+surf(P_rec_dBm);
+zlabel('Potencia Recebida (dBm)')
+ylabel('Y(m)')
+xlabel('X(m)')
